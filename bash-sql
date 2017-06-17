@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -euo pipefail
+
+function create_bsm_table_psql()
+{
+  echo "hi";
+}
+
+function run_command_psql()
+{
+  sql_output=$(psql -U $USERNAME -h ${HOSTNAME:-localhost} --port ${PORT:-5432} $DB_NAME -c "$1")
+}
+
+#run_command_psql "SELECT 1;"
+
+#echo "hi";
+
+#echo "$sql_output";
+
+# separate script for "migrate directory" that this one runs in a subshell?
+
+case "$1" in
+  migrate)
+    echo "do migrate";
+    ;;
+  rollback)
+    echo "do rollback";
+    ;;
+  init)
+    echo "do init";
+    ;;
+  *)  
+    echo "HELP MESSAGE";
+    ;;
+esac
