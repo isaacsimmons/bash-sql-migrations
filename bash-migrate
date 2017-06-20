@@ -2,9 +2,71 @@
 
 set -euo pipefail
 
-BASH_SQL_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SCRIPT_HOME="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+#########################
+# Default config values #
+#########################
+CONFIG_FILE=bash-migrate.conf
+
+#################
+# Parse options #
+#################
+
+while [[ $1 == -* ]]
+do
+  OPTION="$1"
+  shift
+  case "$OPTION" in
+    --config)
+      CONFIG_FILE="$1"
+      echo "Using config file: $CONFIG_FILE"
+      shift
+      ;;
+    *)
+      echo "Unknown option $OPTION" >&2
+      exit 1
+      ;;
+  esac
+done
+
+#################################
+# Load and Validate Config File #
+#################################
+
+source "$CONFIG_FILE"
+
+if [[ -z "${DB_TYPE:-}" ]]
+then
+   echo "Missing required config value DB_TYPE" >&2
+   exit 1
+fi
+
+# Load migration functions for specified database type
+if [[ ! -f "$SCRIPT_HOME/bash-migrate-$DB_TYPE" ]]
+then
+  echo "Unknown DB_TYPE: $DB_TYPE" >&2
+  exit 1
+fi
+
+if [[ -z "${MIGRATION_DIR:-}" ]]
+then
+   echo "Missing required config value MIGRATION_DIR" >&2
+   exit 1
+fi
+
+if [[ ! -d "$MIGRATION_DIR" ]]
+then
+   echo "Migration directory $MIGRATION_DIR not found" >&2
+   exit 1
+fi
+
+#############################
+# Parse and execute command #
+#############################
+
 COMMAND="$1"
-DIRECTORIES="${@:2}"
+shift
 
 #TODO: a create/reset DB option?
 function showusage()
@@ -62,13 +124,3 @@ case "$COMMAND" in
     exit 1
     ;;
 esac
-
-for DIRECTORY in "$DIRECTORIES"
-do
-  echo "Running $COMMAND in $DIRECTORY"
-done
-
-
-
-
-
