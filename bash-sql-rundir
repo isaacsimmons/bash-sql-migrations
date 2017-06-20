@@ -2,11 +2,51 @@
 
 set -euo pipefail
 
-BASH_SQL_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-COMMAND="$1"
-DIRECTORIES="${@:2}"
+# Meant to run bash-sql commands from within a 
+
+COMMAND=$1
+CONFIG_FILE="$2/"
+
+if [[ ! -d "$DIR" ]]
+then
+  echo "Directory not found: $DIR" >&2
+  exit 1
+fi
+
+if [[ ! -f "$DIR/$CONFIG_FILE" ]]
+then
+  echo "Config file $CONFIG_FILE not found in $DIR" >&2
+  exit 1
+fi
+source "$DIR/$CONFIG_FILE"
+
+
+
+
+function create_bsm_table_psql()
+{
+  echo "hi";
+}
+
+function run_command_psql()
+{
+  sql_output=$(psql -U $USERNAME -h ${HOSTNAME:-localhost} --port ${PORT:-5432} $DB_NAME -c "$1")
+}
+
+#run_command_psql "SELECT 1;"
+
+#echo "hi";
+
+#echo "$sql_output";
+
+
+function runcommand()
+{
+  $1_$DB_TYPE $2
+}
 
 #TODO: a create/reset DB option?
+
 function showusage()
 {
   cat >&2 <<EOF
@@ -43,7 +83,7 @@ EOF
 
 # separate script for "migrate directory" that this one runs in a subshell?
 
-case "$COMMAND" in
+case "$1" in
   migrate)
     echo "do migrate";
     ;;
@@ -63,12 +103,5 @@ case "$COMMAND" in
     ;;
 esac
 
-for DIRECTORY in "$DIRECTORIES"
-do
-  echo "Running $COMMAND in $DIRECTORY"
-done
 
-
-
-
-
+echo "$@"

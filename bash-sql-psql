@@ -1,0 +1,67 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# This file provides PostgreSQL-specific implementations for core functions
+# of bash-sql and is not meant to be invoked directly
+
+# First ensure that the required environment vars have been loaded
+function check_env()
+{
+  if [ -z "$DB_USERNAME" ] || [ -z "$DB_HOSTNAME" ] || [ -z "$DB_NAME" ] || [ -z "PGPASSWD" ]
+  then
+    #TODO: support for non-TCP connections and non-password based auth
+    if [ -z "$DB_HOSTNAME" ]
+    then
+      echo "ERROR: Missing environment variable DB_HOSTNAME" >&2
+    fi
+    if [ -z "$DB_NAME" ]
+    then
+      echo "ERROR: Missing environment variable DB_NAME" >&2
+    fi
+    if [ -z "$DB_USERNAME" ]
+    then
+      echo "ERROR: Missing environment variable DB_USERNAME" >&2
+    fi
+    if [ -z "$PGPASSWD" ]
+    then
+      echo "ERROR: Missing environment variable PGPASSWD" >&2
+    fi
+    exit 1
+  fi
+}
+
+######################################
+# Runs a command against the database
+# Globals:
+#    SQL_OUTPUT
+# Arguments:
+#    Command to run
+# Returns:
+#    Return code from db server
+######################################
+function run_sql()
+{
+  #TODO: does the SET euo -pipefail mean that an unsuccessful command here wil
+  # halt execution?
+  SQL_OUTPUT=$(psql -U $USERNAME -h ${HOSTNAME:-localhost} --port ${PORT:-5432} $DB_NAME -c "$1")
+
+  #On some return codes, I should probably just exit -- host not found, bad credentials, etc
+}
+
+function ensure_migration_table()
+{
+  # First see if it already exists
+  run_sql "" && return
+
+  # If not, create it
+  run_sql "CREATE TABLE bash_sql_migrations ()" || { echo "Unable to create migrations table" >&2; exit 1 }
+}
+
+function list_status()
+{
+}
+
+function migrate()
+{
+}
