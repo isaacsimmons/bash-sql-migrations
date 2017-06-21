@@ -103,17 +103,24 @@ EOF
 }
 
 
-# separate script for "migrate directory" that this one runs in a subshell?
+# TODO: store most of the stuff below in a separate script that can be
+#       run in a subshell in order to support multiple migration dirs at once?
+
+# Load in DB_TYPE specific implementations for functions
+source "$SCRIPT_HOME/bash-migrate-$DB_TYPE"
 
 case "$COMMAND" in
   migrate)
-    echo "do migrate";
+    echo "do migrate"
     ;;
-  rollback)
-    echo "do rollback";
-    ;;
-  init)
-    echo "do init";
+  create)
+    echo "do create"
+    TIMESTAMP=$( date +%s )
+    MIGRATION_NAME="$1"
+    shift
+    touch "$MIGRATION_DIR/$TIMESTAMP_$MIGRATION_NAME.up.$MIGRATION_FILE_EXTENSION"
+    touch "$MIGRATION_DIR/$TIMESTAMP_$MIGRATION_NAME.down.$MIGRATION_FILE_EXTENSION"
+    echo "Created blah"
     ;;
   help)
     showhelp

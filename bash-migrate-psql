@@ -1,9 +1,7 @@
-#!/bin/bash
-
-set -euo pipefail
-
 # This file provides PostgreSQL-specific implementations for core functions
 # of bash-sql and is not meant to be invoked directly
+
+MIGRATION_FILE_EXTENSION=sql
 
 # First ensure that the required environment vars have been loaded
 function check_env()
@@ -55,13 +53,16 @@ function ensure_migration_table()
   run_sql "" && return
 
   # If not, create it
-  run_sql "CREATE TABLE bash_sql_migrations ()" || { echo "Unable to create migrations table" >&2; exit 1 }
+  run_sql "CREATE TABLE bash_sql_migrations ()" || { echo "Unable to create migrations table" >&2; exit 1; }
 }
 
 function list_status()
 {
+  echo "postgres list_status"
 }
 
 function migrate()
 {
+  echo "postgres migrate"
 }
+
