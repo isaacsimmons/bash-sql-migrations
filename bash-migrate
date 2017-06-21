@@ -115,12 +115,23 @@ case "$COMMAND" in
     ;;
   create)
     echo "do create"
-    TIMESTAMP=$( date +%s )
     MIGRATION_NAME="$1"
     shift
-    touch "$MIGRATION_DIR/$TIMESTAMP_$MIGRATION_NAME.up.$MIGRATION_FILE_EXTENSION"
-    touch "$MIGRATION_DIR/$TIMESTAMP_$MIGRATION_NAME.down.$MIGRATION_FILE_EXTENSION"
-    echo "Created blah"
+
+    if [[ -z "$MIGRATION_NAME" ]]
+    then
+      echo "Missing required argument: migration name" >&2
+      #TODO: usage message?
+      exit 1
+    fi
+
+    find "$MIGRATION_DIR" -regex "$MIGRATION_DIR/[0-9]+_$MIGRATION_NAME.\(up\|down\).$MIGRATION_FILE_EXTENSION" -type f | grep -q "." && { echo "Migration with name $MIGRATION_NAME already exists" >&2; exit 1; }
+
+
+    TIMESTAMP=$( date +%s )
+    touch "$MIGRATION_DIR/${TIMESTAMP}_$MIGRATION_NAME.up.$MIGRATION_FILE_EXTENSION"
+    touch "$MIGRATION_DIR/${TIMESTAMP}_$MIGRATION_NAME.down.$MIGRATION_FILE_EXTENSION"
+    echo "Created $MIGRATION_DIR/${TIMESTAMP}_$MIGRATION_NAME.(up|down).$MIGRATION_FILE_EXTENSION"
     ;;
   help)
     showhelp
