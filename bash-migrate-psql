@@ -6,7 +6,7 @@ MIGRATION_FILE_EXTENSION=sql
 # First ensure that the required environment vars have been loaded
 function check_env()
 {
-  if [ -z "$DB_USERNAME" ] || [ -z "$DB_HOSTNAME" ] || [ -z "$DB_NAME" ] || [ -z "PGPASSWD" ]
+  if [ -z "$DB_USERNAME" ] || [ -z "$DB_HOSTNAME" ] || [ -z "$DB_NAME" ] || [ -z "PGPASSWORD" ]
   then
     #TODO: support for non-TCP connections and non-password based auth
     if [ -z "$DB_HOSTNAME" ]
@@ -21,9 +21,9 @@ function check_env()
     then
       echo "ERROR: Missing environment variable DB_USERNAME" >&2
     fi
-    if [ -z "$PGPASSWD" ]
+    if [ -z "$PGPASSWORD" ]
     then
-      echo "ERROR: Missing environment variable PGPASSWD" >&2
+      echo "ERROR: Missing environment variable PGPASSWORD" >&2
     fi
     exit 1
   fi
@@ -42,7 +42,7 @@ function run_sql()
 {
   #TODO: does the SET euo -pipefail mean that an unsuccessful command here wil
   # halt execution?
-  SQL_OUTPUT=$(psql -U $USERNAME -h ${HOSTNAME:-localhost} --port ${PORT:-5432} $DB_NAME -c "$1")
+  SQL_OUTPUT=$(PGPASSWORD="$PGPASSWORD" psql -U $USERNAME -h ${HOSTNAME:-localhost} --port ${PORT:-5432} $DB_NAME -c "$1")
 
   #On some return codes, I should probably just exit -- host not found, bad credentials, etc
 }
@@ -50,10 +50,10 @@ function run_sql()
 function ensure_migration_table()
 {
   # First see if it already exists
-  run_sql "" && return
+  run_sql "SELECT 1 FROM bash_sql_migrations LIMIT 1" && return
 
   # If not, create it
-  run_sql "CREATE TABLE bash_sql_migrations ()" || { echo "Unable to create migrations table" >&2; exit 1; }
+  run_sql "CREATE TABLE bash_sql_migrations (ts INTEGER NOT NULL PRIMARY KEY, name VARCHAR(64) NOT NULL, applied BOOLEAN NOT NULL DEFAULT FALSE, UNIQUE(name))" || { echo "Unable to create migrations table" >&2; exit 1; }
 }
 
 function list_status()

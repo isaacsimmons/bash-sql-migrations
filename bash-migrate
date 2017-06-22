@@ -113,6 +113,11 @@ case "$COMMAND" in
   migrate)
     echo "do migrate"
     ;;
+  init)
+    echo "init"
+    #TODO remove this and just run it manually instead
+    ensure_migration_table
+    ;;
   create)
     echo "do create"
     MIGRATION_NAME="$1"
