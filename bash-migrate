@@ -5,51 +5,55 @@ set -euo pipefail
 ##############################
 # Print error message and exit
 # Arguments:
-#   $1: message
-#   $2: exit code (default 1)
+#   message
+#   exit code (default 1)
 ##############################
-function die()
-{
+function die() {
   declare message="$1" exitcode="${2:-1}"
   echo "$message" >&2
   exit $exitcode
 }
 
-#########################
-# Default config values #
-#########################
-CONFIG_FILE=bash-migrate.conf
-
-#################
-# Parse options #
-#################
-
-while [[ $1 == -* ]]
-do
-  OPTION="$1"
-  shift
-  case "$OPTION" in
-    --config)
-      CONFIG_FILE="$1"
-      echo "Using config file: $CONFIG_FILE"
-      shift
-      ;;
-    *)
-      die "Unknown option $OPTION"
-      ;;
-  esac
-done
-
-#################################################
-# Loads the config and checks for required values
+############################################################
+# Parse global options
+# Arguments:
+#   $@ from the parent script
 # Globals:
-#   CONFIG_FILE: name of the config file to use
-#   SCRIPT_HOME: location of the main script
+#   CONFIG_FILE: relative path to the config file
+#   COMMAND: remaining argments not parsed as global options
+############################################################
+function parse_options() {
+  # Defaults
+  CONFIG_FILE=bash-migrate.conf
+
+  while [[ $1 == -* ]]
+  do
+    local OPTION="$1"
+    shift
+    case "$OPTION" in
+      --config)
+        CONFIG_FILE="$1"
+        echo "Using config file: $CONFIG_FILE"
+        shift
+        ;;
+      *)
+        die "Unknown option $OPTION"
+        ;;
+    esac
+  done
+  #FIXME: something to do with how I'm passing this stuff between functions messes up quoted options that contain spaces
+  COMMAND="$@"
+}
+
+################################################
+# Load config file and and check required values
+# Arguments:
+#   config_file: path to the config file
+# Globals:
 #   *: adds values from config file
-#################################################
+################################################
 function load_config() {
-  #TODO: move SCRIPT_HOME calculation into here?
-  source "$CONFIG_FILE"
+  source "$1"
   if [[ -z "${MIGRATION_DIR:-}" ]]; then
     die "Missing required config value MIGRATION_DIR"
   fi
@@ -58,21 +62,7 @@ function load_config() {
   fi
 }
 
-#################################
-# Load and Validate Config File #
-#################################
-load_config
-
-#############################
-# Parse and execute command #
-#############################
-
-COMMAND="$1"
-shift
-
-#TODO: a create/reset DB option?
-function showusage()
-{
+function show_usage() {
   cat >&2 <<EOF
 Usage: bash-sql command [directory..]
 Command is one of: migrate, create, validate, copy-init, test-config
@@ -80,10 +70,10 @@ Directory is one or more directories that contain a bash-sql.conf file and migra
 For more details, run: bash-sql help command
 and action is one of create, up, down, rollback, status, redo, and pending.
 EOF
+  exit 1
 }
 
-function showhelp()
-{
+function showhelp() {
   case $1 in
     migrate)
       cat <<EOF
@@ -103,10 +93,6 @@ EOF
       ;;
   esac
 }
-
-
-# TODO: store most of the stuff below in a separate script that can be
-#       run in a subshell in order to support multiple migration dirs at once?
 
 ###########################################
 # Load in database specific implementations
@@ -129,43 +115,77 @@ function load_db_files() {
   source "$db_script"
 }
 
+##########################################################
+# Create an empty migration
+# Arguments:
+#   name: Name for new migration
+# Globals:
+#   MIGRATION_DIR: location for migrations
+#   MIRATION_FILE_EXTENSION: file extension for migrations
+##########################################################
+function create_migration() {
+  local name="$1"
+
+  if [[ -z "$name" ]]; then
+    die "Missing required argument: migration name"
+  fi
+
+  find "$MIGRATION_DIR" -regex "$MIGRATION_DIR/[0-9]+_$name.\(up\|down\).$MIGRATION_FILE_EXTENSION" -type f | grep -q "." && die "Migration with name $name already exists"
+
+  local timestamp=$( date +%s )
+  local up_file="$MIGRATION_DIR/${timestamp}_$name.up.$MIGRATION_FILE_EXTENSION"
+  local down_file="$MIGRATION_DIR/${timestamp}_$name.down.$MIGRATION_FILE_EXTENSION"
+  touch "$up_file" && echo "Created $up_file"
+  touch "$down_file" && echo "Created $down_file"
+}
+
+#####################################
+# Parse and dispatch main command
+# Arguments:
+#   command: migration command to run
+#   opts*: options for the command
+#####################################
+function run_command() {
+  echo "running $@"
+  local command="$1"
+  local command_opts="${@:2}"
+
+  echo "command is $command"
+  echo "command_opts are $command_opts"
+
+  #TODO: a create/reset DB option?
+
+  case "$command" in
+    migrate)
+      echo "do migrate"
+      ;;
+    init)
+      echo "init"
+      #TODO remove this and just run it manually instead
+      ensure_migration_table
+      ;;
+    create)
+      create_migration "$command_opts"
+      ;;
+    help)
+      showhelp "$command_opts"
+      ;;
+    *)
+      show_usage
+      ;;
+  esac
+}
+
+SCRIPT_NAME="$0"
+
+# Parse global command line options
+parse_options "$@"
+
+# Load the config file
+load_config "$CONFIG_FILE"
+
+# Load db-provider-specific implementations of functions
 load_db_files "${DB_TYPE:-}"
 
-case "$COMMAND" in
-  migrate)
-    echo "do migrate"
-    ;;
-  init)
-    echo "init"
-    #TODO remove this and just run it manually instead
-    ensure_migration_table
-    ;;
-  create)
-    echo "do create"
-    MIGRATION_NAME="$1"
-    shift
-
-    if [[ -z "$MIGRATION_NAME" ]]
-    then
-      echo "Missing required argument: migration name" >&2
-      #TODO: usage message?
-      exit 1
-    fi
-
-    find "$MIGRATION_DIR" -regex "$MIGRATION_DIR/[0-9]+_$MIGRATION_NAME.\(up\|down\).$MIGRATION_FILE_EXTENSION" -type f | grep -q "." && { echo "Migration with name $MIGRATION_NAME already exists" >&2; exit 1; }
-
-    TIMESTAMP=$( date +%s )
-    UP_FILE="$MIGRATION_DIR/${TIMESTAMP}_$MIGRATION_NAME.up.$MIGRATION_FILE_EXTENSION"
-    DOWN_FILE="$MIGRATION_DIR/${TIMESTAMP}_$MIGRATION_NAME.down.$MIGRATION_FILE_EXTENSION"
-    touch "$UP_FILE" && echo "Created $UP_FILE"
-    touch "$DOWN_FILE" && echo "Created $DOWN_FILE"
-    ;;
-  help)
-    showhelp
-    exit 0
-    ;;
-  *)
-    echo "Unknown command. Run "sql_bash help" for help."
-    exit 1
-    ;;
-esac
+# Execute the command
+run_command $COMMAND
