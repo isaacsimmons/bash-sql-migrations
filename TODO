@@ -1,0 +1,1 @@
+sort migrations by monthly folders (or at least yearly?) YYYY/MM/TS_up_migration_name.sql (based on UTC, fuck timezones)
