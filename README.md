@@ -16,7 +16,13 @@ Finally, if neither is specified, it will be assumed to be `./migrations` (relat
 
 `./bash_migrate list`: Prints the current status of all migrations.
 
-`./bash_migrate run <migration identifier>` 
+`./bash_migrate run [<migration identifier>]` Apply or rollback migrations in order as needed to get the database into the specfied state.
+An identifier can be any of the following:
+* the timestamp of any migration
+* the the name of any migration
+* `0` refers to the state before the first migration
+* an offset like `+2` or `-1` will be interpreted relative to the latest currently applied migration
+* specifying no identifier will default to the latest state (apply all migrations)
 
 # Configuration
 

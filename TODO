@@ -1,1 +1,5 @@
 sort migrations by monthly folders (or at least yearly?) YYYY/MM/TS_up_migration_name.sql (based on UTC, fuck timezones)
+
+    date -ud @13453231 +%Y-%m
+
+store hash of migration file in DB when it gets applied, warn if it changes?

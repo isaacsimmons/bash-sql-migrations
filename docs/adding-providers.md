@@ -13,7 +13,7 @@ The file must export the following environment variables:
  * DEFAULT_CONFIG_TEMPLATE
 
 The file must export the following bash functions:
- * `check_env`: No arguments, invokes `die` function with error message if required environement vars are missing
- * `init_db`: No arguments, creates the bash-migrate data table
- * `get_status`: No arguments, prints to standard out all of the names of all migrations and their current status (new/up/down).
+ * `check_env`: No arguments, invokes `die` function with error message if required environement vars are missing.
+ * `init_db`: No arguments, creates the bash-migrate data table if absent.
+ * `get_status`: No arguments, checks migrations directory and database tables and sets array variables of MIGRATION_TIMESTAMPS, MIGRATION_NAMES, MIGRATION_STATUSES.
  * `run_migration`: Single argument of the path to the (up or down) migration file to apply.

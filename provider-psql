@@ -50,7 +50,7 @@ function run_sql()
 function ensure_migration_table()
 {
   # First see if it already exists
-  run_sql "SELECT 1 FROM bash_sql_migrations LIMIT 1" && return
+  run_sql "SELECT 1 FROM bash_sql _migrations LIMIT 1" && return
 
   # If not, create it
   run_sql "CREATE TABLE bash_sql_migrations (ts INTEGER NOT NULL PRIMARY KEY, name VARCHAR(64) NOT NULL, applied BOOLEAN NOT NULL DEFAULT FALSE, UNIQUE(name))" || { echo "Unable to create migrations table" >&2; exit 1; }

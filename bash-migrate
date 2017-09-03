@@ -3,15 +3,39 @@
 set -euo pipefail
 
 ##############################
-# Print error message and exit
+# Prints message.
+# DEBUG messages are suppressed if the VERBOSE environment var isn't set.
+# ERROR and FATAL messages are sent to stderr instead of stdout
+# FATAL messages cause the process to exit 1
+#
 # Arguments:
 #   message
-#   exit code (default 1)
+#   level DEBUG|INFO|WARN|ERROR|FATAL (default: INFO) Debug level messages are suppressed unless VERBOSE is set
 ##############################
-function die() {
-  declare message="$1" exitcode="${2:-1}"
-  echo "$message" >&2
-  exit $exitcode
+function log() {
+  declare message="$1" level="${2:-INFO}"
+
+  # Bail on fn is VERBOSE isn't set and level is DEBUG
+  if [[ -z "${VERBOSE:-}" && "$level" = "DEBUG" ]]; then
+    return
+  fi
+
+  case "$level" in
+    DEBUG | INFO | WARN)
+      echo "$level: $message"
+      ;;
+    ERROR | FATAL)
+      echo "$level: $message" >&2
+      ;;
+    *)
+      log "Unknown log level $level" FATAL
+      ;;
+  esac
+
+  # Exit script if level was FATAL
+  if [[ "$level" = "FATAL" ]]; then
+    exit 1
+  fi
 }
 
 ############################################################
@@ -19,46 +43,57 @@ function die() {
 # Arguments:
 #   $@ from the parent script
 # Globals:
-#   CONFIG_FILE: relative path to the config file
+#   MIGRATION_DIR: relative path to the config file
+#   VERBOSE: sets verbose mode for the rest of the script
 #   COMMAND: remaining argments not parsed as global options
 ############################################################
 function parse_options() {
   # Defaults
-  CONFIG_FILE=bash-migrate.conf
+  MIGRATION_DIR=${MIGRATION_DIR:-migrations}
+  unset VERBOSE
 
-  while [[ $1 == -* ]]
+  while [[ -n ${1:-} && $1 == -* ]]
   do
     local OPTION="$1"
     shift
     case "$OPTION" in
-      --config)
-        CONFIG_FILE="$1"
-        echo "Using config file: $CONFIG_FILE"
+      -d |  --dir)
+        MIGRATION_DIR="$1"
         shift
         ;;
+      -v | --verbose)
+        VERBOSE=1
+        ;;
       *)
-        die "Unknown option $OPTION"
+        log "Unknown option $OPTION" FATAL
         ;;
     esac
   done
+
   #FIXME: something to do with how I'm passing this stuff between functions messes up quoted options that contain spaces
+  log "Using migration directory: $MIGRATION_DIR" DEBUG
+
   COMMAND="$@"
 }
 
 ################################################
 # Load config file and and check required values
-# Arguments:
-#   config_file: path to the config file
+#
 # Globals:
+#   MIGRATION_DIR: Directory to look in for config file
+#   CONFIG_FILE: Name of the config file (default: bash-migrate.conf)
 #   *: adds values from config file
 ################################################
 function load_config() {
-  source "$1"
-  if [[ -z "${MIGRATION_DIR:-}" ]]; then
-    die "Missing required config value MIGRATION_DIR"
-  fi
-  if [[ ! -d "$MIGRATION_DIR" ]]; then
-    die "Migration directory $MIGRATION_DIR not found"
+  # if [[ ! -d "$MIGRATION_DIR" ]]; then
+  #   log "Migration directory $MIGRATION_DIR not found" FATAL
+  # fi
+  declare config_file="$MIGRATION_DIR/${CONFIG_FILE:-bash-migrate.conf}"
+  if [[ -f "$config_file" ]]; then
+    log "Using config file at $config_file" DEBUG
+    source "$config_file"
+  else
+    log "No config file found at $config_file" WARN
   fi
 }
 
@@ -103,13 +138,13 @@ function load_db_files() {
   local db_type="$1"
 
   if [[ -z "${db_type}" ]]; then
-    die "Missing required config value DB_TYPE"
+    log "Missing required config value DB_TYPE" FATAL
   fi
 
-  local db_script="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/bash-migrate-$db_type"
+  local db_script="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/provider-$db_type"
   
   if [[ ! -f "$db_script" ]]; then
-    die "Unknown database type: $db_type"
+    log "Unknown database type: $db_type" FATAL
   fi
 
   source "$db_script"
@@ -127,10 +162,10 @@ function create_migration() {
   local name="$1"
 
   if [[ -z "$name" ]]; then
-    die "Missing required argument: migration name"
+    log "Missing required argument: migration name" FATAL
   fi
 
-  find "$MIGRATION_DIR" -regex "$MIGRATION_DIR/[0-9]+_$name.\(up\|down\).$MIGRATION_FILE_EXTENSION" -type f | grep -q "." && die "Migration with name $name already exists"
+  find "$MIGRATION_DIR" -regex "$MIGRATION_DIR/[0-9]+_$name.\(up\|down\).$MIGRATION_FILE_EXTENSION" -type f | grep -q "." && log "Migration with name $name already exists" FATAL
 
   local timestamp=$( date +%s )
   local up_file="$MIGRATION_DIR/${timestamp}_$name.up.$MIGRATION_FILE_EXTENSION"
@@ -146,12 +181,9 @@ function create_migration() {
 #   opts*: options for the command
 #####################################
 function run_command() {
-  echo "running $@"
+  log "running $@" DEBUG
   local command="$1"
   local command_opts="${@:2}"
-
-  echo "command is $command"
-  echo "command_opts are $command_opts"
 
   #TODO: a create/reset DB option?
 
@@ -176,13 +208,13 @@ function run_command() {
   esac
 }
 
-SCRIPT_NAME="$0"
+echo "yo"
 
 # Parse global command line options
 parse_options "$@"
 
 # Load the config file
-load_config "$CONFIG_FILE"
+load_config
 
 # Load db-provider-specific implementations of functions
 load_db_files "${DB_TYPE:-}"
